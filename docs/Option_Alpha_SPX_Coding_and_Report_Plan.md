@@ -88,12 +88,21 @@ Use new Option Alpha backtests for true strategy variants. Do not present a filt
 
 **Backtest verification — can the saved trades be reproduced exactly?**
 
+Two verification steps are in scope.
+
+Step 1 — internal consistency (uses only the existing exports):
+
 - Trade-calendar completeness: every Mon–Fri trading day (excluding market holidays) must appear either as an executed trade in `positions.csv` or as a skipped day in `filtered_trade.txt`, with no gaps or overlaps.
-- Strike-selection replay: using independent SPX daily closes, recompute "previous close + $0.01 rounded to the 5-point grid" for every trade day and confirm it matches the recorded center strike.
-- Settlement replay: compare the export's Price at Close with the actual SPX closing level, recompute each trade's expiration P/L from that level, and confirm it matches the reported P/L.
 - Entry-price plausibility: check that each open price lies inside its recorded bid/ask, and that recorded mids and spreads are consistent with the 9.65 and $2.00 filters on both executed and skipped days.
-- Quote-level verification (only if intraday SPX option quotes become available): reproduce the 10:00 a.m. bid/ask of the four legs and confirm both the fills and the filter triggers on skipped days.
-- Record every discrepancy with its date and magnitude; classify the backtest as reproducible, reproducible-with-noted-exceptions, or not reproducible.
+
+Step 2 — replay against independent SPX daily closes:
+
+- Strike-selection replay: recompute "previous close + $0.01 rounded to the 5-point grid" for every trade day and confirm it matches the recorded center strike.
+- Settlement replay: compare the export's Price at Close with the actual SPX closing level, recompute each trade's expiration P/L from that level, and confirm it matches the reported P/L. Note that SPX 0DTE options settle on the 4:00 p.m. close; small persistent differences may reflect the settlement-price definition rather than a backtest error.
+
+For both steps, record every discrepancy with its date and magnitude, and classify the backtest as reproducible, reproducible-with-noted-exceptions, or not reproducible.
+
+Out of scope: quote-level verification of the 10:00 a.m. bid/ask on the four legs, since it requires paid intraday SPX option quote data.
 
 ### Phase 3 — Robustness analysis
 
