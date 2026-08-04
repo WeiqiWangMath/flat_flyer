@@ -1,7 +1,7 @@
 # Option Alpha SPX — High-Level Coding and Report Plan
 
 **Owner:** Weiqi Wang  
-**Updated:** August 1, 2026  
+**Updated:** August 4, 2026  
 **Status:** Planning
 
 ## 1. Goal
@@ -85,6 +85,15 @@ Use new Option Alpha backtests for true strategy variants. Do not present a filt
 - Add previous close, 9:30 a.m. open, 10:00 a.m. level, and expiration level where available.
 - Create the displacement, mean-reversion, scaling, and strike-grid variables.
 - Analyze their relationships with credit and P/L.
+
+**Backtest verification — can the saved trades be reproduced exactly?**
+
+- Trade-calendar completeness: every Mon–Fri trading day (excluding market holidays) must appear either as an executed trade in `positions.csv` or as a skipped day in `filtered_trade.txt`, with no gaps or overlaps.
+- Strike-selection replay: using independent SPX daily closes, recompute "previous close + $0.01 rounded to the 5-point grid" for every trade day and confirm it matches the recorded center strike.
+- Settlement replay: compare the export's Price at Close with the actual SPX closing level, recompute each trade's expiration P/L from that level, and confirm it matches the reported P/L.
+- Entry-price plausibility: check that each open price lies inside its recorded bid/ask, and that recorded mids and spreads are consistent with the 9.65 and $2.00 filters on both executed and skipped days.
+- Quote-level verification (only if intraday SPX option quotes become available): reproduce the 10:00 a.m. bid/ask of the four legs and confirm both the fills and the filter triggers on skipped days.
+- Record every discrepancy with its date and magnitude; classify the backtest as reproducible, reproducible-with-noted-exceptions, or not reproducible.
 
 ### Phase 3 — Robustness analysis
 
