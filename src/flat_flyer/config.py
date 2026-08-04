@@ -28,3 +28,8 @@ SLIPPAGE_PER_SPREAD = 0.0
 # Tolerance (in dollars) when cross-checking reported P/L against the
 # theoretical payoff; covers rounding of settlement prices in the export.
 PAYOFF_TOLERANCE = 2.0
+
+# Phase 2 Step 2: independent SPX daily closes (FRED → Yahoo → Stooq).
+SPX_DAILY_CACHE = PROCESSED_DIR / "spx_daily_closes.csv"
+# Points: export "Price at Close" vs independent daily close.
+SETTLEMENT_PRICE_TOLERANCE = 0.05

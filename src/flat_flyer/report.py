@@ -13,6 +13,7 @@ from jinja2 import Template
 
 from . import config
 from .validate import CheckResult
+from .verify import VerificationResult
 
 # Coverage of the master plan's analysis questions; used to render the
 # progress section so the report always reflects the current development
@@ -21,7 +22,7 @@ COVERAGE = [
     ("A", "Baseline performance", "done",
      "Metrics, equity curve, drawdown, monthly/yearly breakdowns, outcome distribution."),
     ("B", "Previous close, entry price, and mean reversion", "pending",
-     "Needs intraday SPX levels (Phase 2)."),
+     "Needs intraday SPX levels (after Phase 2 verification)."),
     ("C", "Long-term SPX growth and the fixed 10-point width", "pending",
      "Relative-width analysis planned for Phase 2."),
     ("D", "Strike-grid rounding", "pending",
@@ -30,6 +31,10 @@ COVERAGE = [
      "Observed spreads and skipped-day log are summarized; slippage/fee scenarios come in Phase 3."),
     ("F", "Parameter robustness", "pending",
      "Requires additional Option Alpha backtests (Phase 3)."),
+    ("V1", "Backtest verification Step 1 (internal consistency)", "done",
+     "Trade-calendar completeness and entry-price filter consistency on the exports."),
+    ("V2", "Backtest verification Step 2 (SPX close replay)", "done",
+     "Strike-selection and settlement P/L replay against independent daily closes (FRED→Yahoo→Stooq)."),
 ]
 
 TEMPLATE = Template("""<!DOCTYPE html>
@@ -126,7 +131,65 @@ it does not stop the report.</p>
   {% endfor %}
 </table>
 
-<h2>5. Coverage — progress against the master plan</h2>
+<h2>5. Backtest verification — Step 1 (internal consistency)</h2>
+<p>Uses only the Option Alpha exports (no external market data). Verdict:
+<strong>{{ step1.verdict }}</strong> —
+{{ step1.n_sessions }} NYSE sessions =
+{{ step1.n_trades }} executed trades + {{ step1.n_skipped }} skipped days.</p>
+<table>
+  <tr><th>Check</th><th>Description</th><th>Result</th></tr>
+  {% for c in step1.checks %}
+  <tr><td>{{ c.name }}</td><td style="text-align:left">{{ c.description }}</td>
+      <td>{% if c.passed %}<span class="ok">OK</span>{% else %}
+          <span class="fail">{{ c.violations }}/{{ c.total }}</span>
+          {% if c.examples %}(e.g. {{ c.examples | join(", ") }}){% endif %}{% endif %}</td></tr>
+  {% endfor %}
+</table>
+{% if step1.discrepancies %}
+<p>{{ step1.discrepancies | length }} discrepancies (date and magnitude written to
+<code>data/processed/verify_step1_discrepancies.csv</code>):</p>
+<table>
+  <tr><th>Check</th><th>Date</th><th style="text-align:left">Detail</th><th>Magnitude</th></tr>
+  {% for d in step1.discrepancies[:25] %}
+  <tr><td>{{ d.check }}</td><td>{{ d.date }}</td>
+      <td style="text-align:left">{{ d.detail }}</td>
+      <td>{% if d.magnitude is not none %}{{ "%.4g"|format(d.magnitude) }}{% else %}—{% endif %}</td></tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No discrepancies recorded.</p>
+{% endif %}
+
+<h2>6. Backtest verification — Step 2 (SPX close replay)</h2>
+<p>Independent SPX daily closes from <strong>{{ step2.source or "unavailable" }}</strong>
+(fetch order: FRED → Yahoo → Stooq, with on-disk cache). Verdict:
+<strong>{{ step2.verdict }}</strong> over {{ step2.n_trades }} executed trades.</p>
+<table>
+  <tr><th>Check</th><th>Description</th><th>Result</th></tr>
+  {% for c in step2.checks %}
+  <tr><td>{{ c.name }}</td><td style="text-align:left">{{ c.description }}</td>
+      <td>{% if c.passed %}<span class="ok">OK</span>{% else %}
+          <span class="fail">{{ c.violations }}/{{ c.total }}</span>
+          {% if c.examples %}(e.g. {{ c.examples | join(", ") }}){% endif %}{% endif %}</td></tr>
+  {% endfor %}
+</table>
+{% if step2.discrepancies %}
+<p>{{ step2.discrepancies | length }} discrepancies (see
+<code>data/processed/verify_step2_discrepancies.csv</code>):</p>
+<table>
+  <tr><th>Check</th><th>Date</th><th style="text-align:left">Detail</th><th>Magnitude</th></tr>
+  {% for d in step2.discrepancies[:25] %}
+  <tr><td>{{ d.check }}</td><td>{{ d.date }}</td>
+      <td style="text-align:left">{{ d.detail }}</td>
+      <td>{% if d.magnitude is not none %}{{ "%.4g"|format(d.magnitude) }}{% else %}—{% endif %}</td></tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No discrepancies recorded. Export Price at Close matches the independent SPX
+close on every trade day, and replayed expiration P/L matches the reported P/L.</p>
+{% endif %}
+
+<h2>7. Coverage — progress against the master plan</h2>
 <p>Development status of each analysis question from
 <code>docs/Option_Alpha_SPX_Coding_and_Report_Plan.md</code>. This section is rebuilt on every
 run, so the report always reflects the current state of the project.</p>
@@ -161,8 +224,15 @@ def _df_html(df: pd.DataFrame, money_cols: list[str] | None = None,
 
 
 def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
-                 checks: list[CheckResult], figures: dict[str, Path]) -> Path:
+                 checks: list[CheckResult], figures: dict[str, Path],
+                 step1: VerificationResult | None = None,
+                 step2: VerificationResult | None = None) -> Path:
     config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    if step1 is None:
+        step1 = VerificationResult(checks=[], verdict="not run")
+    if step2 is None:
+        step2 = VerificationResult(checks=[], verdict="not run")
 
     html = TEMPLATE.render(
         generated=datetime.now().strftime("%b %d, %Y %H:%M"),
@@ -178,6 +248,8 @@ def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
             .sort_values("Days", ascending=False)
         ),
         checks=checks,
+        step1=step1,
+        step2=step2,
         coverage=COVERAGE,
         figures={name: _embed(path) for name, path in figures.items()},
     )

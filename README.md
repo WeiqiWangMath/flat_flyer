@@ -20,17 +20,18 @@ make test          # run unit tests
 |---|---|
 | `data/raw/` | Original Option Alpha exports (`positions.csv`, `filtered_trade.txt`) — never modified |
 | `data/processed/` | Cleaned intermediate data (generated, gitignored) |
-| `src/flat_flyer/` | Analysis package: loading, validation, metrics, plots, report |
+| `src/flat_flyer/` | Analysis package: loading, validation, market data, metrics, plots, report |
 | `reports/` | Generated HTML report and figures (gitignored) |
-| `tests/` | Unit tests for parsing and payoff math |
+| `tests/` | Unit tests for parsing, payoff math, and verification |
 | `docs/` | Master analysis plan |
 | `PLAN.md` | Brief working plan for the current phase |
 | `PROGRESS.md` | Living development log, updated at every milestone |
 
 ## Inputs
 
-- `data/raw/positions.csv` — 507 executed trades (Mar 2023 – Mar 2026) with legs, open/close prices, bid/ask, and P/L.
+- `data/raw/positions.csv` — 508 executed trades (Mar 2023 – Mar 2026) with legs, open/close prices, bid/ask, and P/L.
 - `data/raw/filtered_trade.txt` — Option Alpha log of days the strategy skipped, with the reason (bid/ask spread filter, pricing issue, max-price filter, early close, leg error).
+- SPX daily closes — pulled automatically from FRED (fallback: Yahoo, Stooq) when you run `make report`.
 
 ## Configuration
 

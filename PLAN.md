@@ -21,30 +21,25 @@ SPX 0DTE iron butterfly ("Flat Flyer" template on Option Alpha):
   reason line, and usually a detail line. Observed reasons: `Bid/ask spread`
   (spread filter), `Pricing issue detected` (spread too wide / mid above
   width), `Max price` (mid above 9.65), `Early close day`, `Leg error detected`.
+- Independent SPX daily closes — fetched at report time (FRED → Yahoo → Stooq)
+  and cached to `data/processed/spx_daily_closes.csv`.
 
-## Phase 1 scope (current)
+## Done — Phase 2 verification
 
-1. `load.py` — parse both raw files into tidy DataFrames; derive strikes from
-   the leg string; coerce numerics; expiry = open date (0DTE).
-2. `validate.py` — structural checks (wing width 10, short strikes equal,
-   strike on 5-point grid) and payoff cross-checks (P/L vs premium and SPX
-   close, max loss consistency). Discrepancies are collected and reported,
-   not fatal.
-3. `metrics.py` — baseline performance: total/average P/L, win rate, average
-   winner/loser, profit factor, cumulative P/L, max drawdown, monthly and
-   yearly tables, outcome distribution, skipped-day summary.
-4. `plots.py` — equity curve with drawdown, P/L histogram, monthly P/L
-   heatmap, credit vs P/L scatter.
-5. `report.py` — self-contained HTML report (jinja2, embedded PNGs) with an
-   executive summary, stats, figures, validation results, and a Coverage
-   section showing which analyses from the master plan are done vs pending.
-6. Tests for leg parsing, filtered-log parsing, and payoff math.
+- Step 1: trade-calendar completeness + entry-price filter consistency.
+- Step 2: strike-selection and settlement P/L replay vs independent closes.
+  Both steps: **reproducible** on this export.
 
-One command rebuilds everything: `make report`.
+## Next — Phase 2 analysis variables (questions B–D)
 
-## Later phases (from the master plan)
+With verified daily closes in hand:
 
-- Phase 2: market-data variables (previous close, 10:00am level, displacement,
-  mean reversion, strike-grid rounding).
+- Displacement from previous close / center strike; mean-reversion vs stay-near
+  center; relative 10-point width over time; strike-grid rounding effects.
+- Intraday 9:30 open and 10:00 entry levels still needed for the full
+  mean-reversion study (question B); daily closes cover C/D and part of B.
+
+## Later phases
+
 - Phase 3: slippage/fee scenarios, regime comparisons, parameter robustness.
 - Phase 4: full automated report covering analysis questions A–F.
