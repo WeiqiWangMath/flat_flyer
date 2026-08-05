@@ -21,9 +21,9 @@ from .verify import VerificationResult
 COVERAGE = [
     ("A", "Baseline performance", "done",
      "Metrics, equity curve, drawdown, monthly/yearly breakdowns, outcome distribution."),
-    ("B", "Previous close, entry price, and mean reversion", "pending",
-     "Designed (work order in PLAN.md); no intraday data needed — Price at Open "
-     "is the 10:00am SPX level. Preliminary: 57% of entries start beyond the wings."),
+    ("B", "Previous close, entry price, and mean reversion", "done",
+     "Displacement, m-on-d regression, toward/away, bucket outcomes; skipped days "
+     "excluded (no verified 10:00 SPX)."),
     ("C", "Long-term SPX growth and the fixed 10-point width", "pending",
      "Relative-width analysis planned for Phase 2."),
     ("D", "Strike-grid rounding", "pending",
@@ -49,6 +49,7 @@ TEMPLATE = Template("""<!DOCTYPE html>
          max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; color: #1c2733; line-height: 1.55; }
   h1 { font-size: 1.7rem; border-bottom: 3px solid #264653; padding-bottom: .4rem; }
   h2 { font-size: 1.25rem; margin-top: 2.2rem; color: #264653; }
+  h3 { font-size: 1.05rem; margin-top: 1.4rem; color: #3d5a6c; }
   .meta { color: #6b7a88; font-size: .9rem; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .8rem; margin: 1.2rem 0; }
   .card { background: #f4f7f9; border-radius: 8px; padding: .8rem 1rem; }
@@ -65,6 +66,7 @@ TEMPLATE = Template("""<!DOCTYPE html>
   .status.partial { background: #fdf1d6; color: #9a6b00; }
   .status.pending { background: #eceff2; color: #6b7a88; }
   .ok { color: #1d7a5f; font-weight: 600; } .fail { color: #c0442c; font-weight: 600; }
+  .note { background: #f7f4ea; border-left: 3px solid #c4a35a; padding: .6rem .9rem; margin: .8rem 0; font-size: .92rem; }
   footer { margin-top: 3rem; color: #6b7a88; font-size: .8rem; border-top: 1px solid #d8e0e6; padding-top: .8rem; }
 </style>
 </head>
@@ -94,6 +96,9 @@ TEMPLATE = Template("""<!DOCTYPE html>
 the average loser (${{ "{:,.0f}".format(stats.avg_loser) }}), which is what makes the low win rate profitable.
 Most important caveat: these are Option Alpha model fills at the mid; execution costs and slippage
 are not yet applied (Phase 3).</p>
+{% if b_verdict %}
+<p><strong>Displacement / mean reversion:</strong> {{ b_verdict }}</p>
+{% endif %}
 
 <h2>2. Strategy and data</h2>
 <p>SPX 0DTE iron butterfly: short put and call at the strike $0.01 above the previous close,
@@ -119,7 +124,89 @@ execution-cost analysis in Phase 3.</p>
 <h3>Credit vs outcome</h3>
 <img src="data:image/png;base64,{{ figures.credit_vs_pl }}" alt="Opening credit vs P/L">
 
-<h2>4. Data validation</h2>
+{% if b_summary %}
+<h2>4. What drives the result — displacement and mean reversion</h2>
+<p>The center strike K is set from the previous close. By 10:00am entry, SPX has usually
+already moved. Define:</p>
+<ul>
+  <li><strong>d</strong> = SPX at 10:00 (export <em>Price at Open</em>) − K — morning displacement</li>
+  <li><strong>m</strong> = settlement − SPX at 10:00 — afternoon move after entry</li>
+  <li><strong>final miss</strong> = |settlement − K| — alone determines P/L given the credit</li>
+</ul>
+<p>If the afternoon undoes the morning (<code>m</code> opposite <code>d</code>), the trade is a
+<strong>mean-reversion</strong> bet. If <code>m</code> is near zero regardless of <code>d</code>, it is mainly a bet
+that SPX stays near the center.</p>
+
+<div class="note">
+<strong>Scope note.</strong> This section uses the {{ b_summary.n }} <em>executed</em> trades only.
+The {{ n_filtered }} filter-skipped days are excluded because the export does not record a
+verified 10:00am SPX level for them (daily FRED/Yahoo closes are 9:30 open / 4:00 close, not
+10:00). Those days are not checked here; adding them needs intraday SPX (or ES) minute data.
+</div>
+
+<div class="cards">
+  <div class="card"><div class="label">Mean d</div>
+    <div class="value">{{ "{:+.1f}".format(b_summary.mean_d) }} pts</div></div>
+  <div class="card"><div class="label">Std d</div>
+    <div class="value">{{ "{:.1f}".format(b_summary.std_d) }} pts</div></div>
+  <div class="card"><div class="label">Beyond wings (|d|&gt;{{ width|int }})</div>
+    <div class="value">{{ "{:.0%}".format(b_summary.pct_beyond_width) }}</div></div>
+  <div class="card"><div class="label">Beyond own credit</div>
+    <div class="value">{{ "{:.0%}".format(b_summary.pct_beyond_credit) }}</div></div>
+  <div class="card"><div class="label">Toward center</div>
+    <div class="value">{{ "{:.0%}".format(b_summary.pct_toward) }}</div></div>
+  <div class="card"><div class="label">m-on-d slope</div>
+    <div class="value {{ 'pos' if b_summary.reg_slope < 0 else 'neg' }}">{{ "{:.2f}".format(b_summary.reg_slope) }}</div></div>
+</div>
+
+<h3>4.1 Where does SPX sit at entry?</h3>
+<p>{{ "{:.0%}".format(b_summary.pct_beyond_width) }} of trades enter with SPX already outside the
+{{ width|int }}-point wings, and only {{ "{:.0%}".format(b_summary.pct_within_2_5) }} start within
+2.5 points of the center. Bucket edges use <em>each trade’s own fill credit</em> (so “inside credit”
+means a win if SPX does not move further). Counts are therefore unequal by design — they reflect
+how often the strategy is already asking for a pullback.</p>
+<img src="data:image/png;base64,{{ figures.displacement_hist }}" alt="Entry displacement histogram">
+
+<h3>4.2 Does the afternoon reverse the morning? (central test)</h3>
+<p>Regress post-entry move <code>m</code> on displacement <code>d</code>. A significantly
+<strong>negative</strong> slope means large morning moves tend to reverse after 10:00
+(mean reversion). A slope near zero means the afternoon is unrelated to how far SPX already
+traveled — closer to a “calm afternoon / pin” bet. The dotted line <code>m = −d</code> is full
+snap-back to the center.</p>
+<p>Fitted line: m = {{ "{:.2f}".format(b_summary.reg_intercept) }} +
+{{ "{:.2f}".format(b_summary.reg_slope) }} · d
+(r = {{ "{:.2f}".format(b_summary.reg_r) }}, t-stat on slope = {{ "{:.1f}".format(b_summary.reg_t_slope) }},
+n = {{ b_summary.reg_n }}).
+{% if b_summary.mean_reverting %}
+The negative slope is statistically meaningful (|t| &gt; 2): afternoon mean reversion is present.
+{% else %}
+The slope is not clearly significant (|t| ≤ 2): treat mean reversion as weak or inconclusive.
+{% endif %}
+</p>
+<img src="data:image/png;base64,{{ figures.mean_reversion_scatter }}" alt="Mean reversion scatter">
+
+<h3>4.3 Toward vs away, and do far entries pay?</h3>
+<p>Overall, {{ "{:.0%}".format(b_summary.pct_toward) }} of trades finish closer to K than they
+started (random-walk benchmark 50%). The table below breaks that down by |d| bucket, with win
+rate and average P/L — answering whether “already far from center at 10:00” is rewarded.</p>
+{{ bucket_table }}
+<img src="data:image/png;base64,{{ figures.bucket_performance }}" alt="Bucket toward-center and outcomes">
+
+<h3>4.4 Credit vs displacement (why the 9.65 filter matters)</h3>
+<p>As |d| grows, the iron butterfly mid credit rises toward the wing width. Correlation between
+fill credit and |d| is {{ "{:.2f}".format(b_summary.corr_credit_abs_d) }}. The 9.65 max-mid filter
+therefore acts as an <em>implicit displacement filter</em>: the most extreme morning moves are
+more likely to be skipped. Those skipped days are counted in section 2 but are not placed on
+this chart (no verified 10:00 SPX).</p>
+<img src="data:image/png;base64,{{ figures.credit_vs_displacement }}" alt="Credit vs absolute displacement">
+
+<h3>4.5 Direction asymmetry</h3>
+<p>{{ "{:.0%}".format(b_summary.pct_above) }} of entries have SPX above the center and
+{{ "{:.0%}".format(b_summary.pct_below) }} below. Repeating the summary by side of K:</p>
+{{ direction_table }}
+{% endif %}
+
+<h2>5. Data validation</h2>
 <p>Structural and payoff checks on the raw export. A failing check flags rows for review;
 it does not stop the report.</p>
 <table>
@@ -132,7 +219,7 @@ it does not stop the report.</p>
   {% endfor %}
 </table>
 
-<h2>5. Backtest verification — Step 1 (internal consistency)</h2>
+<h2>6. Backtest verification — Step 1 (internal consistency)</h2>
 <p>Uses only the Option Alpha exports (no external market data). Verdict:
 <strong>{{ step1.verdict }}</strong> —
 {{ step1.n_sessions }} NYSE sessions =
@@ -161,7 +248,7 @@ it does not stop the report.</p>
 <p>No discrepancies recorded.</p>
 {% endif %}
 
-<h2>6. Backtest verification — Step 2 (SPX close replay)</h2>
+<h2>7. Backtest verification — Step 2 (SPX close replay)</h2>
 <p>Independent SPX daily closes from <strong>{{ step2.source or "unavailable" }}</strong>
 (fetch order: FRED → Yahoo → Stooq, with on-disk cache). Verdict:
 <strong>{{ step2.verdict }}</strong> over {{ step2.n_trades }} executed trades.</p>
@@ -190,7 +277,7 @@ it does not stop the report.</p>
 close on every trade day, and replayed expiration P/L matches the reported P/L.</p>
 {% endif %}
 
-<h2>7. Coverage — progress against the master plan</h2>
+<h2>8. Coverage — progress against the master plan</h2>
 <p>Development status of each analysis question from
 <code>docs/Option_Alpha_SPX_Coding_and_Report_Plan.md</code>. This section is rebuilt on every
 run, so the report always reflects the current state of the project.</p>
@@ -215,25 +302,55 @@ def _embed(path: Path) -> str:
 
 
 def _df_html(df: pd.DataFrame, money_cols: list[str] | None = None,
-             pct_cols: list[str] | None = None) -> str:
+             pct_cols: list[str] | None = None,
+             float_cols: list[str] | None = None) -> str:
     df = df.copy()
     for col in money_cols or []:
-        df[col] = df[col].map("${:,.0f}".format)
+        if col in df.columns:
+            df[col] = df[col].map("${:,.0f}".format)
     for col in pct_cols or []:
-        df[col] = df[col].map("{:.1%}".format)
+        if col in df.columns:
+            df[col] = df[col].map("{:.1%}".format)
+    for col in float_cols or []:
+        if col in df.columns:
+            df[col] = df[col].map("{:.2f}".format)
     return df.to_html(border=0)
 
 
 def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
                  checks: list[CheckResult], figures: dict[str, Path],
                  step1: VerificationResult | None = None,
-                 step2: VerificationResult | None = None) -> Path:
+                 step2: VerificationResult | None = None,
+                 b_summary: dict | None = None,
+                 b_buckets: pd.DataFrame | None = None,
+                 b_direction: pd.DataFrame | None = None,
+                 b_verdict: str = "",
+                 n_filtered: int | None = None) -> Path:
     config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     if step1 is None:
         step1 = VerificationResult(checks=[], verdict="not run")
     if step2 is None:
         step2 = VerificationResult(checks=[], verdict="not run")
+    if n_filtered is None:
+        n_filtered = len(filtered)
+
+    bucket_html = ""
+    direction_html = ""
+    if b_buckets is not None and not b_buckets.empty:
+        bucket_html = _df_html(
+            b_buckets.round(4),
+            money_cols=["Avg P/L", "Total P/L"],
+            pct_cols=["Share", "Toward K", "Win rate"],
+            float_cols=["Avg |d|", "Avg credit"],
+        )
+    if b_direction is not None and not b_direction.empty:
+        direction_html = _df_html(
+            b_direction.round(4),
+            money_cols=["Avg P/L"],
+            pct_cols=["Share", "Toward K", "Win rate"],
+            float_cols=["Avg d", "Avg |d|", "m-on-d slope"],
+        )
 
     html = TEMPLATE.render(
         generated=datetime.now().strftime("%b %d, %Y %H:%M"),
@@ -243,7 +360,7 @@ def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
         max_spread=config.MAX_BID_ASK_SPREAD,
         yearly_table=_df_html(yearly.round(2), money_cols=["Total P/L", "Avg P/L", "Avg credit"],
                               pct_cols=["Win rate"]),
-        n_filtered=len(filtered),
+        n_filtered=n_filtered,
         filtered_table=_df_html(
             filtered.groupby("reason").size().to_frame("Days")
             .sort_values("Days", ascending=False)
@@ -251,6 +368,10 @@ def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
         checks=checks,
         step1=step1,
         step2=step2,
+        b_summary=b_summary,
+        b_verdict=b_verdict,
+        bucket_table=bucket_html,
+        direction_table=direction_html,
         coverage=COVERAGE,
         figures={name: _embed(path) for name, path in figures.items()},
     )

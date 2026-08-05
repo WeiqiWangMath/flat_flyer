@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
-from . import config, load, market_data, metrics, plots, report, validate, verify
+from . import (
+    config, displacement, load, market_data, metrics, plots, report, validate, verify,
+)
 
 
 def main() -> None:
@@ -45,9 +47,21 @@ def main() -> None:
     if step2.discrepancies:
         print(f"  {len(step2.discrepancies)} discrepancies recorded")
 
+    print("Question B — displacement and mean reversion ...")
+    disp = displacement.build_displacement_table(df)
+    b_summary = displacement.displacement_summary(disp)
+    b_buckets = displacement.bucket_table(disp)
+    b_direction = displacement.direction_table(disp)
+    b_verdict = displacement.verdict_sentence(b_summary)
+    print(f"  mean d={b_summary['mean_d']:+.1f}, "
+          f"beyond wings={b_summary['pct_beyond_width']:.0%}, "
+          f"m-on-d slope={b_summary['reg_slope']:.3f} (t={b_summary['reg_t_slope']:.1f})")
+    print(f"  {b_verdict}")
+
     config.PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     df.to_csv(config.PROCESSED_DIR / "trades_clean.csv", index=False)
     filtered.to_csv(config.PROCESSED_DIR / "filtered_days.csv", index=False)
+    disp.to_csv(config.PROCESSED_DIR / "displacement.csv", index=False)
     verify.discrepancies_frame(step1).to_csv(
         config.PROCESSED_DIR / "verify_step1_discrepancies.csv", index=False
     )
@@ -61,9 +75,12 @@ def main() -> None:
 
     stats = metrics.baseline_stats(df)
     figures = plots.all_figures(df)
+    figures.update(plots.question_b_figures(disp, b_summary, b_buckets))
     out = report.build_report(
         stats, metrics.yearly_table(df), filtered, checks, figures,
         step1=step1, step2=step2,
+        b_summary=b_summary, b_buckets=b_buckets, b_direction=b_direction,
+        b_verdict=b_verdict, n_filtered=len(filtered),
     )
 
     print(f"Total P/L ${stats['total_pl']:,.0f} over {stats['n_trades']} trades, "

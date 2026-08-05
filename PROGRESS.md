@@ -20,17 +20,13 @@ Master plan: [docs/Option_Alpha_SPX_Coding_and_Report_Plan.md](docs/Option_Alpha
 
 ### Phase 2 — Market-data analysis (questions B, C, D)
 
-- [x] Step 1 — internal consistency (exports only): trade-calendar completeness
-      and entry-price / filter plausibility. Verdict: **reproducible**
-      (752 NYSE sessions = 508 trades + 244 skips; 0 discrepancies).
-- [x] Step 2 — replay against independent SPX daily closes (FRED → Yahoo →
-      Stooq). Verdict: **reproducible** (source FRED): 508/508 strike matches,
-      508/508 settlement price and P/L matches.
-- [ ] Question B — displacement and mean reversion. Designed and ready to
-      implement (work order in `PLAN.md`; full design in the master plan).
-      No new data needed: Price at Open = SPX at the 10:00am entry,
-      Price at Close = settlement, previous closes from the verified daily
-      series. Optional later: 9:30am open via daily OHLC (Yahoo/Stooq).
+- [x] Step 1 — internal consistency (exports only). Verdict: **reproducible**.
+- [x] Step 2 — SPX daily-close replay (FRED → Yahoo → Stooq). Verdict:
+      **reproducible**.
+- [x] Question B — displacement and mean reversion (executed trades only;
+      skipped days noted as unchecked for 10:00 SPX). Verdict sentence in
+      report: afternoon mean reversion is weak (slope −0.10, t=−1.5) despite
+      57% of entries starting beyond the wings.
 - [ ] Question C — relative width over time (daily closes already available).
 - [ ] Question D — strike-grid rounding (previous closes already available).
 
@@ -45,64 +41,38 @@ Master plan: [docs/Option_Alpha_SPX_Coding_and_Report_Plan.md](docs/Option_Alpha
 
 ## Log
 
+### Aug 5, 2026 — Question B implemented
+
+- Added `displacement.py`: per-trade d, m, final miss, payoff-anchored buckets
+  (each trade’s own fill credit), m-on-d OLS, toward/away, direction split.
+- Four figures + explained report section 4; skipped filter days excluded with
+  an explicit note that 10:00 SPX is not verified for them.
+- Finding: mean d = +2.8 pts; 57% beyond wings; m-on-d slope −0.10 (t=−1.5) —
+  lean mean-reverting but not statistically strong. `make test`: 40 passed.
+
 ### Aug 5, 2026 — Question B designed; preliminary displacement finding
 
-- Agreed the design for question B (displacement and mean reversion); full
-  spec added to the master plan, implementation work order in `PLAN.md`.
-- Key realization: no intraday data is needed for the core of B — the
-  export's Price at Open column is the SPX level at the 10:00am entry.
-- Preliminary distribution of entry displacement d = Price at Open − K over
-  all 508 trades: mean +2.8, std 18.9 points, 5%–95% range −30 to +33.
-  57% of trades enter with SPX already beyond the wings (|d| > 10) and 62%
-  beyond the credit; only ~11% start within 2.5 points of the center.
-  Working hypothesis: the strategy is predominantly a mean-reversion bet,
-  not a pin-the-close bet; the full analysis will test whether the
-  afternoon reversion is strong enough to justify those entries.
+- Agreed the design for question B; full spec in the master plan.
+- Key realization: no intraday data needed for core B — Price at Open is the
+  10:00am SPX level on executed trades.
+- Preliminary: 57% of trades enter beyond the wings; working hypothesis was
+  mean reversion (later measured as weak — see above).
 
 ### Aug 4, 2026 — Phase 2 Step 2 complete
 
-- Added `market_data.py`: SPX daily closes via FRED → Yahoo → Stooq, cached to
-  `data/processed/spx_daily_closes.csv`.
-- Strike replay: center = previous close + $0.01 rounded to the 5-point grid
-  with half-down on exact midpoints (matches OA on all 508 trades, including
-  the two .49 → .50 tie cases).
-- Settlement replay: export Price at Close equals FRED SP500 close on every
-  trade day; reported P/L matches payoff at that close within $2.
-- Report section 6 shows Step 2; `make test` now runs 35 tests.
+- Added `market_data.py`: SPX daily closes via FRED → Yahoo → Stooq.
+- Strike and settlement replay: 508/508 match FRED. Verdict: reproducible.
 
 ### Aug 4, 2026 — Phase 2 Step 1 complete
 
-- Added `holidays.py` (NYSE full-day closures for Mar 2023–Mar 2026, including
-  Jan 9, 2025 national day of mourning) and `verify.py` (calendar completeness
-  + executed/skipped entry-price filter consistency).
-- On the saved export: every NYSE session is exactly one trade or one skip;
-  every open price is inside its bid/ask; executed mids/spreads respect 9.65 /
-  $2.00; skipped days match their stated filter reason. Verdict: reproducible.
-- Report section 5 shows Step 1; discrepancies CSV written when any appear.
+- Trade-calendar completeness + entry-price filter consistency.
+- Verdict: reproducible (752 sessions = 508 trades + 244 skips).
 
 ### Aug 1, 2026 — Phase 1 complete
 
-- Baseline results from the export (no execution costs applied yet):
-  508 trades (Mar 24, 2023 – Mar 24, 2026), total P/L $17,543 on $100,000
-  (+17.5%), win rate 25.8%, average winner $471 vs average loser -$117,
-  profit factor 1.40, max drawdown -$1,605.
-- All 11 validation checks pass: four legs parse on every trade, wings are
-  exactly 10 wide, body on the 5-point grid, both entry filters respected,
-  and reported P/L matches the theoretical payoff (credit minus capped
-  intrinsic at settlement) within $2 on every row.
-- `filtered_trade.txt` parsed: 244 skipped days — 116 pricing issues,
-  63 bid/ask spread filter, 56 max-price filter, 8 early close days,
-  1 leg error. That is 32% of eligible days, a meaningful selection effect
-  to revisit in Phase 3.
-- `make report` rebuilds everything (clean data to `data/processed/`,
-  figures, self-contained `reports/report.html`).
+- Baseline: 508 trades, total P/L $17,543, win rate 25.8%, profit factor 1.40,
+  max drawdown −$1,605. All 11 validation checks pass.
 
 ### Aug 1, 2026 — Setup
 
-- Created project structure (`data/`, `src/flat_flyer/`, `tests/`, `docs/`,
-  `reports/`), moved raw exports to `data/raw/`, added README, Makefile,
-  requirements, .gitignore. Initialized git.
-- Inspected inputs: `positions.csv` has 508 iron butterfly trades
-  (Mar 24, 2023 – Mar 2026); `filtered_trade.txt` is the skipped-day log with
-  reasons (bid/ask spread filter, pricing issues, max-price filter, early
-  close days, one leg error).
+- Project scaffold, raw exports under `data/raw/`, docs and git initialized.

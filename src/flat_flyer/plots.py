@@ -91,10 +91,96 @@ def credit_vs_pl(df: pd.DataFrame) -> Path:
     return _save(fig, "credit_vs_pl")
 
 
+def displacement_hist(disp: pd.DataFrame) -> Path:
+    fig, ax = plt.subplots()
+    ax.hist(disp["d"], bins=40, color=LINE, alpha=0.85)
+    ax.axvline(0, color="black", lw=1)
+    ax.axvline(config.WING_WIDTH, color=LOSS, ls="--", lw=1, label=f"+/−{config.WING_WIDTH:g} width")
+    ax.axvline(-config.WING_WIDTH, color=LOSS, ls="--", lw=1)
+    ax.set_xlabel("Entry displacement d = SPX@10:00 − center strike (points)")
+    ax.set_ylabel("Trades")
+    ax.set_title("Distribution of entry displacement")
+    ax.legend()
+    return _save(fig, "displacement_hist")
+
+
+def mean_reversion_scatter(disp: pd.DataFrame, summary: dict) -> Path:
+    """Central question-B chart: post-entry move m vs entry displacement d."""
+    fig, ax = plt.subplots(figsize=(9, 5))
+    colors = np.where(disp["pl"] > 0, GAIN, LOSS)
+    ax.scatter(disp["d"], disp["m"], s=14, c=colors, alpha=0.55, label="trades")
+    # Regression line across the observed d range.
+    x = disp["d"].to_numpy()
+    xs = np.linspace(np.nanmin(x), np.nanmax(x), 100)
+    ax.plot(xs, summary["reg_intercept"] + summary["reg_slope"] * xs, color=LINE, lw=2,
+            label=(f"m = {summary['reg_intercept']:.2f} + {summary['reg_slope']:.2f}·d"
+                   f"  (r={summary['reg_r']:.2f})"))
+    ax.axhline(0, color="black", lw=0.8)
+    ax.axvline(0, color="black", lw=0.8)
+    # Pure mean-reversion reference: m = −d (full snap-back to K).
+    ax.plot(xs, -xs, color="#9a6b00", ls=":", lw=1.2, label="full reversion m = −d")
+    ax.set_xlabel("Entry displacement d (points)")
+    ax.set_ylabel("Post-entry move m = settle − entry (points)")
+    ax.set_title("Mean reversion: does the afternoon undo the morning move?")
+    ax.legend(loc="best", fontsize=8)
+    return _save(fig, "mean_reversion_scatter")
+
+
+def bucket_performance(disp: pd.DataFrame, buckets: pd.DataFrame) -> Path:
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5))
+    labels = list(buckets.index)
+    x = np.arange(len(labels))
+
+    toward = buckets["Toward K"].to_numpy()
+    ax1.bar(x, toward, color=LINE, alpha=0.85)
+    ax1.axhline(0.5, color=LOSS, ls="--", lw=1, label="50% random-walk")
+    ax1.set_xticks(x, labels, rotation=25, ha="right")
+    ax1.set_ylim(0, 1)
+    ax1.set_ylabel("Share finishing closer to K")
+    ax1.set_title("Toward-center frequency by |d| bucket")
+    ax1.legend(fontsize=8)
+
+    ax2.bar(x - 0.2, buckets["Win rate"], width=0.4, color=GAIN, label="Win rate")
+    ax2b = ax2.twinx()
+    ax2b.bar(x + 0.2, buckets["Avg P/L"], width=0.4, color=LINE, alpha=0.7, label="Avg P/L")
+    ax2.set_xticks(x, labels, rotation=25, ha="right")
+    ax2.set_ylabel("Win rate")
+    ax2b.set_ylabel("Avg P/L ($)")
+    ax2.set_title("Outcome by |d| bucket")
+    h1, l1 = ax2.get_legend_handles_labels()
+    h2, l2 = ax2b.get_legend_handles_labels()
+    ax2.legend(h1 + h2, l1 + l2, fontsize=8, loc="best")
+    fig.tight_layout()
+    return _save(fig, "bucket_performance")
+
+
+def credit_vs_displacement(disp: pd.DataFrame) -> Path:
+    fig, ax = plt.subplots()
+    ax.scatter(disp["abs_d"], disp["credit_pts"], s=12, c=LINE, alpha=0.5)
+    ax.axhline(config.MAX_MID_CREDIT, color=LOSS, ls="--", lw=1,
+               label=f"max mid filter {config.MAX_MID_CREDIT}")
+    ax.axvline(config.WING_WIDTH, color="#9a6b00", ls=":", lw=1, label="wing width")
+    ax.set_xlabel("|d| at entry (points)")
+    ax.set_ylabel("Fill credit (points)")
+    ax.set_title("Credit rises with morning displacement")
+    ax.legend(fontsize=8)
+    return _save(fig, "credit_vs_displacement")
+
+
 def all_figures(df: pd.DataFrame) -> dict[str, Path]:
     return {
         "equity_curve": equity_curve(df),
         "pl_histogram": pl_histogram(df),
         "monthly_heatmap": monthly_heatmap(df),
         "credit_vs_pl": credit_vs_pl(df),
+    }
+
+
+def question_b_figures(disp: pd.DataFrame, summary: dict,
+                       buckets: pd.DataFrame) -> dict[str, Path]:
+    return {
+        "displacement_hist": displacement_hist(disp),
+        "mean_reversion_scatter": mean_reversion_scatter(disp, summary),
+        "bucket_performance": bucket_performance(disp, buckets),
+        "credit_vs_displacement": credit_vs_displacement(disp),
     }
