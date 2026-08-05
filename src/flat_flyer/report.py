@@ -22,7 +22,8 @@ COVERAGE = [
     ("A", "Baseline performance", "done",
      "Metrics, equity curve, drawdown, monthly/yearly breakdowns, outcome distribution."),
     ("B", "Previous close, entry price, and mean reversion", "pending",
-     "Needs intraday SPX levels (after Phase 2 verification)."),
+     "Designed (work order in PLAN.md); no intraday data needed — Price at Open "
+     "is the 10:00am SPX level. Preliminary: 57% of entries start beyond the wings."),
     ("C", "Long-term SPX growth and the fixed 10-point width", "pending",
      "Relative-width analysis planned for Phase 2."),
     ("D", "Strike-grid rounding", "pending",
