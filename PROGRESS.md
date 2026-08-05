@@ -26,9 +26,13 @@ Master plan: [docs/Option_Alpha_SPX_Coding_and_Report_Plan.md](docs/Option_Alpha
 - [x] Step 2 — replay against independent SPX daily closes (FRED → Yahoo →
       Stooq). Verdict: **reproducible** (source FRED): 508/508 strike matches,
       508/508 settlement price and P/L matches.
-- [ ] Displacement, mean-reversion, relative-width, and strike-grid variables
-      (questions B–D); needs previous close, 9:30am open, 10:00am and settlement
-      SPX levels (daily closes now available; intraday still pending).
+- [ ] Question B — displacement and mean reversion. Designed and ready to
+      implement (work order in `PLAN.md`; full design in the master plan).
+      No new data needed: Price at Open = SPX at the 10:00am entry,
+      Price at Close = settlement, previous closes from the verified daily
+      series. Optional later: 9:30am open via daily OHLC (Yahoo/Stooq).
+- [ ] Question C — relative width over time (daily closes already available).
+- [ ] Question D — strike-grid rounding (previous closes already available).
 
 ### Phase 3 — Robustness analysis (questions E, F)
 
@@ -40,6 +44,20 @@ Master plan: [docs/Option_Alpha_SPX_Coding_and_Report_Plan.md](docs/Option_Alpha
 - [ ] Not started. Extend report v1 to cover questions A–F end to end.
 
 ## Log
+
+### Aug 5, 2026 — Question B designed; preliminary displacement finding
+
+- Agreed the design for question B (displacement and mean reversion); full
+  spec added to the master plan, implementation work order in `PLAN.md`.
+- Key realization: no intraday data is needed for the core of B — the
+  export's Price at Open column is the SPX level at the 10:00am entry.
+- Preliminary distribution of entry displacement d = Price at Open − K over
+  all 508 trades: mean +2.8, std 18.9 points, 5%–95% range −30 to +33.
+  57% of trades enter with SPX already beyond the wings (|d| > 10) and 62%
+  beyond the credit; only ~11% start within 2.5 points of the center.
+  Working hypothesis: the strategy is predominantly a mean-reversion bet,
+  not a pin-the-close bet; the full analysis will test whether the
+  afternoon reversion is strong enough to justify those entries.
 
 ### Aug 4, 2026 — Phase 2 Step 2 complete
 

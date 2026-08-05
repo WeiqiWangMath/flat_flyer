@@ -1,8 +1,8 @@
 # Option Alpha SPX — High-Level Coding and Report Plan
 
 **Owner:** Weiqi Wang  
-**Updated:** August 4, 2026  
-**Status:** Planning
+**Updated:** August 5, 2026  
+**Status:** In progress — Phase 1 and Phase 2 verification complete; question B designed and ready to implement
 
 ## 1. Goal
 
@@ -25,15 +25,27 @@ Describe what happened in the original backtest:
 
 ### B. Previous close, entry price, and mean reversion
 
-Study how the strategy depends on SPX's location and movement:
+Study how the strategy depends on SPX's location and movement. The main purpose is to determine when the strategy is a mean-reversion trade and when it is mainly a bet that SPX will remain near the center.
 
-- distance from the previous close to the 10:00 a.m. entry price;
-- distance from the center strike at entry;
-- movement from 10:00 a.m. to expiration;
-- whether SPX moved toward or away from the center strike;
-- relationship between these movements, the opening credit, and final P/L.
+**Data note.** No intraday market data is required for the core of B: the export's Price at Open column is the SPX level at the 10:00 a.m. entry, Price at Close is the settlement level, and the previous close is available from the verified independent daily series (and equals the center strike − $0.01). Only the optional 9:30 a.m. open (to separate the overnight gap from the first 30 minutes of trading) needs a small extension of the market-data fetch to daily OHLC (Yahoo or Stooq; FRED has no open).
 
-The main purpose is to determine when the strategy is a mean-reversion trade and when it is mainly a bet that SPX will remain near the center.
+**Variables per trade:**
+
+- entry displacement d = (SPX at 10:00 a.m.) − (center strike K): how far SPX has already traveled from yesterday's close by entry time;
+- post-entry move m = (settlement) − (SPX at 10:00 a.m.);
+- final miss |settlement − K|, which alone determines P/L (win iff the miss is below the credit);
+- normalized variants of d (percent of SPX level and multiples of the 10-point width), so results are comparable as SPX grows from ~3,900 to ~6,900 (feeds question C).
+
+**Analyses:**
+
+1. Distribution of the entry displacement d, with payoff-anchored buckets: inside the credit (win if nothing moves), credit-to-width (needs a partial pull-back), and 1–1.5x, 1.5–2.5x, >2.5x the width (needs a real reversal).
+2. Regression of the post-entry move m on d: a significantly negative slope means morning moves tend to reverse (mean reversion); a slope near zero means the trade is purely a bet on a calm afternoon. This is the central chart of B.
+3. Toward-vs-away frequency: share of trades where SPX finishes closer to K than it started, by displacement bucket, against the 50% random-walk benchmark.
+4. Win rate and average P/L by displacement bucket: do far-from-center entries pay?
+5. Credit vs displacement: credit rises toward the width as |d| grows, so the 9.65 max-mid filter acts as an implicit displacement filter — quantify which days it removes (links to the skipped-day log and Phase 3 costs).
+6. Direction asymmetry: repeat the analyses split by the sign of d (SPX above vs below center).
+
+**Preliminary finding (Aug 5, 2026, from the existing columns):** mean d = +2.8, std = 18.9 points; 57% of trades enter with SPX already beyond the wings (|d| > 10) and 62% beyond the credit; only ~11% start within 2.5 points of the center. On the typical day this is therefore a mean-reversion bet, not a pin-the-close bet; the full analysis quantifies whether the reversion is strong enough to justify those entries.
 
 ### C. Long-term SPX growth and the fixed 10-point width
 
@@ -82,11 +94,13 @@ Use new Option Alpha backtests for true strategy variants. Do not present a filt
 
 ### Phase 2 — Market-data analysis
 
-- Add previous close, 9:30 a.m. open, 10:00 a.m. level, and expiration level where available.
+- Add previous close, 9:30 a.m. open, 10:00 a.m. level, and expiration level where available. (Status: previous close via independent daily series, 10:00 a.m. and settlement levels from the export — all verified. The 9:30 a.m. open remains optional.)
 - Create the displacement, mean-reversion, scaling, and strike-grid variables.
 - Analyze their relationships with credit and P/L.
 
-**Backtest verification — can the saved trades be reproduced exactly?**
+**Question B implementation (next up):** build the per-trade variables and the six analyses listed under question B above into the pipeline — a displacement module writing tidy variables to `data/processed/`, four figures (displacement histogram with payoff-anchored buckets, move-vs-displacement regression scatter, win rate and average P/L by bucket, credit vs displacement), a statistics table (regression slope, toward-vs-away shares, bucket table), and a new report section that flips question B to done in the Coverage table with a one-sentence verdict: mean-reversion trade, calm-afternoon bet, or a mixture depending on displacement.
+
+**Backtest verification — can the saved trades be reproduced exactly? (COMPLETE — both steps verdict: reproducible)**
 
 Two verification steps are in scope.
 

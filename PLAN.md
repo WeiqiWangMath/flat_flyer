@@ -30,14 +30,37 @@ SPX 0DTE iron butterfly ("Flat Flyer" template on Option Alpha):
 - Step 2: strike-selection and settlement P/L replay vs independent closes.
   Both steps: **reproducible** on this export.
 
-## Next — Phase 2 analysis variables (questions B–D)
+## Next — question B: displacement and mean reversion
 
-With verified daily closes in hand:
+Full design in the master plan, question B. No new data is required: the
+export's Price at Open is the SPX level at the 10:00am entry, Price at Close
+is the settlement level, and previous closes come from the verified daily
+series. Preliminary look: 57% of trades enter with SPX already beyond the
+wings, so the working hypothesis is that this is mostly a mean-reversion bet.
 
-- Displacement from previous close / center strike; mean-reversion vs stay-near
-  center; relative 10-point width over time; strike-grid rounding effects.
-- Intraday 9:30 open and 10:00 entry levels still needed for the full
-  mean-reversion study (question B); daily closes cover C/D and part of B.
+Work order for the implementing agent:
+
+1. New module (e.g. `displacement.py`) computing per-trade variables:
+   d = Price at Open − center strike; m = Price at Close − Price at Open;
+   final miss |Price at Close − K|; normalized d (% of SPX and multiples of
+   the 10-point width); payoff-anchored bucket labels
+   (|d| ≤ credit, credit–width, 1–1.5x, 1.5–2.5x, >2.5x width).
+   Write the tidy table to `data/processed/`.
+2. Analyses: displacement distribution; regression of m on d; toward-vs-away
+   share by bucket vs the 50% random-walk benchmark; win rate / avg P/L by
+   bucket; credit vs |d| (the 9.65 filter as an implicit displacement filter);
+   everything split by sign of d.
+3. Four figures + statistics table; new report section; flip question B to
+   "done" in the report Coverage list with a one-sentence verdict.
+4. Unit tests for the variable construction and bucketing.
+5. Optional follow-up (separate task): extend `market_data.py` to daily OHLC
+   (Yahoo/Stooq) to add the 9:30 open and split overnight gap vs morning drift.
+
+## Later — rest of Phase 2 (questions C, D)
+
+- C: 10-point width as % of SPX over time; performance by SPX-level regime.
+- D: strike-grid rounding displacement (previous close vs selected strike),
+  up- vs down-rounding asymmetry.
 
 ## Later phases
 
