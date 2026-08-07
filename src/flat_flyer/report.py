@@ -378,4 +378,10 @@ def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
 
     out = config.REPORTS_DIR / "report.html"
     out.write_text(html)
+
+    # Mirror for GitHub Pages (docs/ on main).
+    docs = config.PROJECT_ROOT / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    (docs / "index.html").write_text(html)
+
     return out
