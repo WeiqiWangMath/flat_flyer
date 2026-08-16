@@ -1,8 +1,8 @@
 # Option Alpha SPX — High-Level Coding and Report Plan
 
 **Owner:** Weiqi Wang  
-**Updated:** August 5, 2026  
-**Status:** In progress — Phase 1 and Phase 2 verification complete; question B designed and ready to implement
+**Updated:** August 16, 2026  
+**Status:** In progress — Phase 1, Phase 2 verification, and question B complete; question C planned (part 1 ready to implement, part 2 awaiting Option Alpha variant backtests)
 
 ## 1. Goal
 
@@ -54,6 +54,19 @@ Examine whether a fixed 10-point butterfly represents the same strategy as the S
 - track 10 points as a percentage of the SPX level;
 - compare performance across years and SPX-level regimes;
 - compare the fixed width with percentage- or volatility-scaled alternatives when suitable backtests or data are available.
+
+**Status: partial (Aug 16, 2026).** Feasibility settled; findings so far from the existing data:
+
+- Over the backtest window SPX grew from ~3,900 to ~6,600 (18.5% CAGR, average drift +3.5 points/day), so the 10-point width shrank from 0.255% to 0.153% of the SPX level — the butterfly is effectively ~40% narrower in 2026 than in 2023. The average close-to-close move (35 points) dwarfs both the width and the drift.
+
+**Part 1 — minimal by design (agreed Aug 16: no standalone section or new figures).** The evidence already shows in one table: win rate fell monotonically by year (28.8% → 26.3% → 23.9% → 18.8%, 2023–2026) as the width shrank relative to SPX (0.228% → 0.145% of the average level at entry). Implementation is limited to adding one column ("width as % of SPX") to the existing yearly table in the baseline report plus a one-sentence verdict with the caveat that the trend is suggestive, not causal — 2026 has few trades and volatility regime is a confounder. The causal test is Part 2.
+
+**Part 2 — variant comparison (needs new Option Alpha backtests).** The export contains only the traded strikes with combo-level quotes, so wider wings or a shifted center cannot be priced from our data. True variants come from cloning the Flat Flyer template on Option Alpha:
+
+- width 15 and width 20 (long legs $15/$20 from the shorts), everything else unchanged;
+- center shift: short strikes $3.00 above the previous close, matching the measured daily drift (note: because of the 5-point grid, +$3.00 selects the same strike as +$0.01 on ~39% of days, so the expected effect is modest).
+
+**Data constraint:** without the paid Option Alpha subscription tier, new backtests cover only about one year. Variant comparisons must therefore be run against the baseline restricted to the same one-year window, clearly labeled as such; the full three-year variant comparison stays open until subscription data (or longer exports) become available. Modeled credits (estimating variant credits from the question B credit-vs-displacement relation) remain a fallback, but must be labeled as estimates, never as backtest results.
 
 ### D. Strike-grid rounding
 

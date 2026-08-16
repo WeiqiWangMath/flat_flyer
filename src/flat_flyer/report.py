@@ -24,8 +24,10 @@ COVERAGE = [
     ("B", "Previous close, entry price, and mean reversion", "done",
      "Displacement, m-on-d regression, toward/away, bucket outcomes; skipped days "
      "excluded (no verified 10:00 SPX)."),
-    ("C", "Long-term SPX growth and the fixed 10-point width", "pending",
-     "Relative-width analysis planned for Phase 2."),
+    ("C", "Long-term SPX growth and the fixed 10-point width", "partial",
+     "Width shrank 0.255% → 0.153% of SPX over the backtest. Regime analysis "
+     "implementable from existing data; width/center variants need new Option "
+     "Alpha backtests (~1 year only without the paid tier)."),
     ("D", "Strike-grid rounding", "pending",
      "Rounding displacement analysis planned for Phase 2."),
     ("E", "Bid-ask spread, slippage, and costs", "partial",
