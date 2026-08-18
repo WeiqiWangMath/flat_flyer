@@ -19,7 +19,8 @@ findings). The report's Coverage section shows the same status automatically.
 - [x] Question B — displacement / mean reversion: weak afternoon reversion
 - [~] Question C — partial: minimal Part 1 ready to implement; Part 2
       blocked on new Option Alpha variant exports (~1 year without paid tier)
-- [ ] Question D — strike-grid rounding
+- [x] Question D — strike-grid rounding: immaterial (median |error| 1.2 pts,
+      up/down avg P/L ~$35/$35)
 
 ### Phase 3 — Robustness analysis (questions E, F)
 
@@ -31,11 +32,17 @@ findings). The report's Coverage section shows the same status automatically.
 
 ## Log
 
+### Aug 18, 2026 — Question D implemented
+
+- `grid_rounding.py` + frequency histogram of K − previous close. Error
+  bounded by ±2.5; median |error| 1.20; up vs down avg P/L $35 vs $35 —
+  conclusion: the 5-point grid does not materially affect results. Short
+  report §5; Coverage D → done.
+
 ### Aug 16, 2026 — Question C planned, marked partial
 
-- Design agreed and trimmed to avoid report bloat: one yearly-table column
-  ("width as % of SPX") + verdict sentence; variants (width 15/20,
-  center +$3.00) await Option Alpha exports. No analysis code yet.
+- Design agreed and trimmed: one yearly-table column + verdict; variants
+  await Option Alpha exports. No analysis code yet.
 
 ### Aug 5, 2026 — Question B designed and implemented
 
@@ -44,14 +51,8 @@ findings). The report's Coverage section shows the same status automatically.
 
 ### Aug 4, 2026 — Phase 2 verification complete
 
-- Steps 1 and 2 both **reproducible**: 752 sessions fully accounted for;
-  508/508 strike and settlement replays match independent SPX closes.
+- Steps 1 and 2 both **reproducible**.
 
-### Aug 1, 2026 — Phase 1 complete
+### Aug 1, 2026 — Phase 1 complete / Setup
 
-- Baseline: 508 trades, total P/L $17,543 (+17.5% on $100k), win rate 25.8%,
-  profit factor 1.40, max drawdown −$1,605. All validation checks pass.
-
-### Aug 1, 2026 — Setup
-
-- Project scaffold, raw exports under `data/raw/`, docs and git initialized.
+- Baseline results and project scaffold.

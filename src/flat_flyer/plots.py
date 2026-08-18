@@ -184,3 +184,20 @@ def question_b_figures(disp: pd.DataFrame, summary: dict,
         "bucket_performance": bucket_performance(disp, buckets),
         "credit_vs_displacement": credit_vs_displacement(disp),
     }
+
+
+def grid_error_hist(grid: pd.DataFrame) -> Path:
+    """Frequency distribution of K − previous close (bounded by ± half grid)."""
+    fig, ax = plt.subplots()
+    half = config.STRIKE_GRID / 2.0
+    bins = np.arange(-half, half + 0.25, 0.25)
+    ax.hist(grid["grid_error"].dropna(), bins=bins, color=LINE, alpha=0.85,
+            edgecolor="white")
+    ax.axvline(0, color="black", lw=1)
+    ax.axvline(half, color=LOSS, ls="--", lw=1, label=f"±{half:g} (half grid)")
+    ax.axvline(-half, color=LOSS, ls="--", lw=1)
+    ax.set_xlabel("Grid error = center strike − previous close (points)")
+    ax.set_ylabel("Trades")
+    ax.set_title("Strike-grid rounding error")
+    ax.legend(fontsize=8)
+    return _save(fig, "grid_error_hist")

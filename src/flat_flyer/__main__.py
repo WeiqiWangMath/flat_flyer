@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 from . import (
-    config, displacement, load, market_data, metrics, plots, report, validate, verify,
+    config, displacement, grid_rounding, load, market_data, metrics, plots,
+    report, validate, verify,
 )
 
 
@@ -58,10 +59,19 @@ def main() -> None:
           f"m-on-d slope={b_summary['reg_slope']:.3f} (t={b_summary['reg_t_slope']:.1f})")
     print(f"  {b_verdict}")
 
+    print("Question D — strike-grid rounding ...")
+    grid = grid_rounding.build_grid_rounding_table(df, spx)
+    d_summary = grid_rounding.grid_rounding_summary(grid)
+    d_verdict = grid_rounding.verdict_sentence(d_summary)
+    print(f"  median |grid error|={d_summary['median_abs_error']:.2f}, "
+          f"max={d_summary['max_abs_error']:.2f} (half-grid={d_summary['half_grid']:g})")
+    print(f"  {d_verdict}")
+
     config.PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     df.to_csv(config.PROCESSED_DIR / "trades_clean.csv", index=False)
     filtered.to_csv(config.PROCESSED_DIR / "filtered_days.csv", index=False)
     disp.to_csv(config.PROCESSED_DIR / "displacement.csv", index=False)
+    grid.to_csv(config.PROCESSED_DIR / "grid_rounding.csv", index=False)
     verify.discrepancies_frame(step1).to_csv(
         config.PROCESSED_DIR / "verify_step1_discrepancies.csv", index=False
     )
@@ -76,11 +86,13 @@ def main() -> None:
     stats = metrics.baseline_stats(df)
     figures = plots.all_figures(df)
     figures.update(plots.question_b_figures(disp, b_summary, b_buckets))
+    figures["grid_error_hist"] = plots.grid_error_hist(grid)
     out = report.build_report(
         stats, metrics.yearly_table(df), filtered, checks, figures,
         step1=step1, step2=step2,
         b_summary=b_summary, b_buckets=b_buckets, b_direction=b_direction,
-        b_verdict=b_verdict, n_filtered=len(filtered),
+        b_verdict=b_verdict, d_summary=d_summary, d_verdict=d_verdict,
+        n_filtered=len(filtered),
     )
 
     print(f"Total P/L ${stats['total_pl']:,.0f} over {stats['n_trades']} trades, "

@@ -19,25 +19,30 @@ from .verify import VerificationResult
 # progress section so the report always reflects the current development
 # state. Update the status here as phases land.
 COVERAGE = [
-    ("A", "Baseline performance", "done",
-     "Metrics, equity curve, drawdown, monthly/yearly breakdowns, outcome distribution."),
-    ("B", "Previous close, entry price, and mean reversion", "done",
-     "Displacement, m-on-d regression, toward/away, bucket outcomes; skipped days "
-     "excluded (no verified 10:00 SPX)."),
-    ("C", "Long-term SPX growth and the fixed 10-point width", "partial",
-     "Width shrank 0.255% → 0.153% of SPX over the backtest. Regime analysis "
-     "implementable from existing data; width/center variants need new Option "
-     "Alpha backtests (~1 year only without the paid tier)."),
-    ("D", "Strike-grid rounding", "pending",
-     "Rounding displacement analysis planned for Phase 2."),
-    ("E", "Bid-ask spread, slippage, and costs", "partial",
-     "Observed spreads and skipped-day log are summarized; slippage/fee scenarios come in Phase 3."),
-    ("F", "Parameter robustness", "pending",
-     "Requires additional Option Alpha backtests (Phase 3)."),
-    ("V1", "Backtest verification Step 1 (internal consistency)", "done",
-     "Trade-calendar completeness and entry-price filter consistency on the exports."),
-    ("V2", "Backtest verification Step 2 (SPX close replay)", "done",
-     "Strike-selection and settlement P/L replay against independent daily closes (FRED→Yahoo→Stooq)."),
+    ("A", "What did the original backtest deliver?", "done",
+     "+$17,543 on $100,000 over 508 trades (Mar 2023 – Mar 2026); win rate 25.8%, "
+     "profit factor 1.40, max drawdown −$1,605. No execution costs applied yet."),
+    ("B", "Is this a mean-reversion trade or a bet that SPX stays near the center?", "done",
+     "Mostly entered as a reversion bet — 57% of entries start beyond the wings — "
+     "but the measured afternoon reversion is weak (slope −0.10, t=−1.5)."),
+    ("C", "Is a fixed 10-point butterfly still the same strategy as SPX grows?", "partial",
+     "Apparently not: the width shrank from 0.255% to 0.153% of SPX while the yearly "
+     "win rate fell 28.8% → 18.8% (suggestive, not causal). Width/center variant "
+     "backtests pending — ~1 year only without the paid Option Alpha tier."),
+    ("D", "Does rounding the center to the 5-point strike grid matter?", "done",
+     "No — the grid error stays within ±2.5 points and up- vs down-rounded days "
+     "show nearly identical P/L. Immaterial."),
+    ("E", "Does the edge survive realistic spreads, slippage, and fees?", "partial",
+     "Open: observed spreads and skipped days are summarized, but slippage/fee "
+     "scenarios come in Phase 3."),
+    ("F", "How sensitive is the result to nearby parameter choices?", "pending",
+     "Open: requires additional Option Alpha variant backtests (Phase 3)."),
+    ("V1", "Is the export internally consistent (calendar and entry filters)?", "done",
+     "Yes — reproducible: all 752 NYSE sessions are exactly one trade or one "
+     "logged skip, and every recorded price respects the filters."),
+    ("V2", "Do strikes and settlements replay against independent SPX closes?", "done",
+     "Yes — reproducible: 508/508 strike selections and settlement P/Ls match "
+     "independent daily closes (FRED → Yahoo → Stooq)."),
 ]
 
 TEMPLATE = Template("""<!DOCTYPE html>
@@ -208,7 +213,23 @@ this chart (no verified 10:00 SPX).</p>
 {{ direction_table }}
 {% endif %}
 
-<h2>5. Data validation</h2>
+{% if d_summary %}
+<h2>5. Strike-grid rounding</h2>
+<p>The center strike is previous close + $0.01 rounded onto the
+{{ config_strike_grid }}-point SPX grid, so the rounding error
+(K − previous close) cannot exceed ±{{ "{:g}".format(d_summary.half_grid) }} points.
+Median |error| is {{ "{:.2f}".format(d_summary.median_abs_error) }} points — an order of
+magnitude smaller than typical entry displacement (|d|).</p>
+<p><strong>Conclusion:</strong> {{ d_verdict }}
+Up-rounding ({{ d_summary.n_up }} days) and down-rounding ({{ d_summary.n_down }} days)
+have nearly the same average P/L (${{ "{:.0f}".format(d_summary.avg_pl_up) }} vs
+${{ "{:.0f}".format(d_summary.avg_pl_down) }}) and win rates
+({{ "{:.0%}".format(d_summary.win_rate_up) }} vs {{ "{:.0%}".format(d_summary.win_rate_down) }}).
+Correlation of grid error with trade P/L is {{ "{:.2f}".format(d_summary.corr_error_pl) }}.</p>
+<img src="data:image/png;base64,{{ figures.grid_error_hist }}" alt="Grid rounding error distribution">
+{% endif %}
+
+<h2>6. Data validation</h2>
 <p>Structural and payoff checks on the raw export. A failing check flags rows for review;
 it does not stop the report.</p>
 <table>
@@ -221,7 +242,7 @@ it does not stop the report.</p>
   {% endfor %}
 </table>
 
-<h2>6. Backtest verification — Step 1 (internal consistency)</h2>
+<h2>7. Backtest verification — Step 1 (internal consistency)</h2>
 <p>Uses only the Option Alpha exports (no external market data). Verdict:
 <strong>{{ step1.verdict }}</strong> —
 {{ step1.n_sessions }} NYSE sessions =
@@ -250,7 +271,7 @@ it does not stop the report.</p>
 <p>No discrepancies recorded.</p>
 {% endif %}
 
-<h2>7. Backtest verification — Step 2 (SPX close replay)</h2>
+<h2>8. Backtest verification — Step 2 (SPX close replay)</h2>
 <p>Independent SPX daily closes from <strong>{{ step2.source or "unavailable" }}</strong>
 (fetch order: FRED → Yahoo → Stooq, with on-disk cache). Verdict:
 <strong>{{ step2.verdict }}</strong> over {{ step2.n_trades }} executed trades.</p>
@@ -279,12 +300,12 @@ it does not stop the report.</p>
 close on every trade day, and replayed expiration P/L matches the reported P/L.</p>
 {% endif %}
 
-<h2>8. Coverage — progress against the master plan</h2>
+<h2>9. Coverage — progress against the master plan</h2>
 <p>Development status of each analysis question from
 <code>docs/Option_Alpha_SPX_Coding_and_Report_Plan.md</code>. This section is rebuilt on every
 run, so the report always reflects the current state of the project.</p>
 <table>
-  <tr><th>Question</th><th>Topic</th><th>Status</th><th style="text-align:left">Notes</th></tr>
+  <tr><th>ID</th><th>Question</th><th>Status</th><th style="text-align:left">Conclusion / status notes</th></tr>
   {% for q, topic, status, note in coverage %}
   <tr><td>{{ q }}</td><td style="text-align:left">{{ topic }}</td>
       <td><span class="status {{ status }}">{{ status }}</span></td>
@@ -327,6 +348,8 @@ def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
                  b_buckets: pd.DataFrame | None = None,
                  b_direction: pd.DataFrame | None = None,
                  b_verdict: str = "",
+                 d_summary: dict | None = None,
+                 d_verdict: str = "",
                  n_filtered: int | None = None) -> Path:
     config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -358,6 +381,7 @@ def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
         generated=datetime.now().strftime("%b %d, %Y %H:%M"),
         stats=stats,
         width=config.WING_WIDTH,
+        config_strike_grid=config.STRIKE_GRID,
         max_mid=config.MAX_MID_CREDIT,
         max_spread=config.MAX_BID_ASK_SPREAD,
         yearly_table=_df_html(yearly.round(2), money_cols=["Total P/L", "Avg P/L", "Avg credit"],
@@ -374,6 +398,8 @@ def build_report(stats: dict, yearly: pd.DataFrame, filtered: pd.DataFrame,
         b_verdict=b_verdict,
         bucket_table=bucket_html,
         direction_table=direction_html,
+        d_summary=d_summary,
+        d_verdict=d_verdict,
         coverage=COVERAGE,
         figures={name: _embed(path) for name, path in figures.items()},
     )

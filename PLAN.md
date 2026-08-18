@@ -24,10 +24,10 @@ SPX 0DTE iron butterfly ("Flat Flyer" template on Option Alpha):
 
 - Phase 1 baseline (question A).
 - Phase 2 verification Steps 1–2 (**reproducible**).
-- Question B — displacement / mean reversion on executed trades; skipped days
-  excluded with a report note (no verified 10:00 SPX). Finding: weak afternoon
-  mean reversion (slope −0.10, t=−1.5) even though 57% of entries start beyond
-  the wings.
+- Question B — displacement / mean reversion (weak afternoon reversion).
+- Question D — strike-grid rounding: error always within ±2.5 points; up vs
+  down rounding P/L nearly identical — immaterial. One histogram + short
+  report section.
 
 ## Next — question C: fixed width vs SPX growth (plan agreed Aug 16)
 
@@ -48,11 +48,6 @@ the 10-point width shrank from 0.255% to 0.153% of SPX; average daily move
   year, so variant-vs-baseline comparisons must use the matching one-year
   window and be labeled accordingly. Loaders are already general; each
   variant is a new raw file + comparison section.
-
-## Then — question D
-
-- Strike-grid rounding (previous close vs selected strike), up- vs
-  down-rounding asymmetry.
 
 Optional later: intraday 10:00 SPX for filter-skipped days; daily OHLC for
 9:30 open vs overnight gap.

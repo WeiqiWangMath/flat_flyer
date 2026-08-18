@@ -59,7 +59,7 @@ Examine whether a fixed 10-point butterfly represents the same strategy as the S
 
 - Over the backtest window SPX grew from ~3,900 to ~6,600 (18.5% CAGR, average drift +3.5 points/day), so the 10-point width shrank from 0.255% to 0.153% of the SPX level — the butterfly is effectively ~40% narrower in 2026 than in 2023. The average close-to-close move (35 points) dwarfs both the width and the drift.
 
-**Part 1 — minimal by design (agreed Aug 16: no standalone section or new figures).** The evidence already shows in one table: win rate fell monotonically by year (28.8% → 26.3% → 23.9% → 18.8%, 2023–2026) as the width shrank relative to SPX (0.228% → 0.145% of the average level at entry). Implementation is limited to adding one column ("width as % of SPX") to the existing yearly table in the baseline report plus a one-sentence verdict with the caveat that the trend is suggestive, not causal — 2026 has few trades and volatility regime is a confounder. The causal test is Part 2.
+**Part 1 — Analysis** The evidence already shows in one table: win rate fell monotonically by year (28.8% → 26.3% → 23.9% → 18.8%, 2023–2026) as the width shrank relative to SPX (0.228% → 0.145% of the average level at entry). Implementation is limited to adding one column ("width as % of SPX") to the existing yearly table in the baseline report plus a one-sentence verdict with the caveat that the trend is suggestive, not causal — 2026 has few trades and volatility regime is a confounder. The causal test is Part 2.
 
 **Part 2 — variant comparison (needs new Option Alpha backtests).** The export contains only the traded strikes with combo-level quotes, so wider wings or a shifted center cannot be priced from our data. True variants come from cloning the Flat Flyer template on Option Alpha:
 
@@ -75,6 +75,8 @@ Measure the effect of selecting a center strike on the available five-point stri
 - calculate the distance between the previous close and the selected center strike;
 - test whether upward and downward rounding have different results;
 - check whether the grid shift materially changes the entry displacement or P/L.
+
+**Status: done (Aug 18, 2026).** Grid error = K − previous close is bounded by ±2.5 points (median |error| 1.20). Up- vs down-rounding average P/L are essentially identical (~$35 / ~$35). Conclusion: the 5-point grid does not materially affect results — one histogram and a short report section.
 
 ### E. Bid-ask spread, slippage, and costs
 
